@@ -4,6 +4,7 @@ on:
   push:
 
 jobs:
+
   apk:
     runs-on: ubuntu-latest
     steps:
@@ -16,7 +17,8 @@ jobs:
     - uses: subosito/flutter-action@v1
       with:
         channel: 'stable' 
-        flutter-version: '2.5.2' 
+        flutter-version: '2.2.0' 
+
         
     - run: |
         flutter clean
@@ -25,7 +27,33 @@ jobs:
 
     - run: flutter build apk --no-sound-null-safety
     
-    - run: |
+    - name: secret key store
+      run: |
+        #NEW
+        echo "${{ secrets.UPLOAD_KEYSTORE }}" > upload-keystore.asc
+        gpg -d --passphrase "${{ secrets.UPLOAD_KEYSTORE_PASSPHRASE }}" --batch upload-keystore.asc > upload-keystore.jks
+ #       #echo "    PWD"
+ #       #pwd
+ #       #echo "    LS"
+ #       #ls -al
+ #       #echo "    TREE"
+ #       #tree
+ #       
+ #       #OLD
+ #       #printf "${{ secrets.PASSWORD }}\n${{ secrets.PASSWORD }}\nflutter by\nvim\nole\nboston\nmassachusetts\nus\nyes" | keytool -genkey -v -keystore ~/upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+        #cd /home/runner/
+        #ls -al | grep -e "upload-keystore.jks"
+        
+      #- name: Sign Android release
+      #  uses: r0adkll/sign-android-release@v1
+
+    - name: reference keystore
+      run: |
+        cd flutter-ble-terminal/android
+        touch key.properties
+    
+    - name: rename apk
+      run: |
         cd build/app/outputs/flutter-apk/
         mv app.apk blueshot.apk
         ls -al
@@ -39,13 +67,27 @@ jobs:
     - uses: subosito/flutter-action@v1
       with:
         channel: 'stable' # 'dev', 'alpha', default to: 'stable'
-        flutter-version: '2.5.2' # you can also specify exact version of flutter
         
-    - run: |
-        flutter clean
-        flutter pub get
-        cd ios
-        pod install
+        flutter-version: '2.2.0' # you can also specify exact version of flutter
+    - name: Build iOS
+      run: |
+          #flutter pub get
+          flutter build ios --release --no-codesign #testing --debug
+          #flutter build ios --debug #test failed
+          
+    - name: Check if Runner.app exists
+      run: |
+          cd /Users/runner/work/flutter-ble-terminal/flutter-ble-terminal/build/ios/iphoneos
+          ls | grep "Runner"
 
-        
-    - run: flutter build ios --release --no-codesign
+    - name: Create Payload
+      run: |
+          cd /Users/runner/work/flutter-ble-terminal/flutter-ble-terminal/build/ios/iphoneos
+          mkdir Payload
+          mv Runner.app Payload/Runner.app
+          
+    - name: Build IPA #requires developer certificate
+      run: |
+        #Test flutter build ipa
+        flutter build ipa #--export-options-plist not needed
+
